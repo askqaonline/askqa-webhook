@@ -1,5 +1,5 @@
 {
-  "name": "askqa-whatsapp-webhook",
+  "name": "askqa-webhook",
   "version": "1.0.0",
   "main": "index.js",
   "type": "module",
