@@ -5,13 +5,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const app = express();
-
-// Parse JSON body
 app.use(bodyParser.json());
-
-// Parse QUERY params (REQUIRED for webhook verify)
-app.use(express.urlencoded({ extended: true }));
-
 
 // ===== VERIFY WEBHOOK (GET) =====
 app.get("/webhook", (req, res) => {
@@ -21,8 +15,6 @@ app.get("/webhook", (req, res) => {
   const token = req.query["hub.verify_token"];
   const challenge = req.query["hub.challenge"];
 
-  console.log("VERIFY REQUEST:", { mode, token, challenge });
-
   if (mode === "subscribe" && token === VERIFY_TOKEN) {
     return res.status(200).send(challenge);
   } else {
@@ -30,23 +22,19 @@ app.get("/webhook", (req, res) => {
   }
 });
 
-
 // ===== RECEIVE WHATSAPP MESSAGES (POST) =====
 app.post("/webhook", (req, res) => {
   console.log("Incoming WhatsApp Message:", JSON.stringify(req.body, null, 2));
   res.sendStatus(200);
 });
 
-
-// ===== ROOT TEST ROUTE =====
+// ===== DEFAULT ROUTE =====
 app.get("/", (req, res) => {
-  res.send("ASKQA WhatsApp Webhook Running 🚀");
+  res.send("ASKQA Webhook Working 🚀");
 });
-
 
 // ===== START SERVER =====
 const PORT = process.env.PORT || 3000;
-
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
