@@ -1,34 +1,40 @@
 import express from "express";
-import crypto from "crypto";
+import bodyParser from "body-parser";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 const app = express();
-app.use(express.json());
+app.use(bodyParser.json());
 
-// VERIFY TOKEN from Render env
-const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
-
-// WEBHOOK VERIFY (GET)
+// ====== VERIFY WEBHOOK (GET) ======
 app.get("/webhook", (req, res) => {
+  const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
+
   const mode = req.query["hub.mode"];
   const token = req.query["hub.verify_token"];
   const challenge = req.query["hub.challenge"];
 
-  if (mode && token) {
-    if (mode === "subscribe" && token === VERIFY_TOKEN) {
-      console.log("WEBHOOK VERIFIED!");
-      res.status(200).send(challenge);
-    } else {
-      res.sendStatus(403); // forbidden
-    }
+  if (mode === "subscribe" && token === VERIFY_TOKEN) {
+    return res.status(200).send(challenge);
+  } else {
+    return res.sendStatus(403);
   }
 });
 
-// RECEIVE MESSAGES (POST)
+// ====== RECEIVE WHATSAPP MESSAGES (POST) ======
 app.post("/webhook", (req, res) => {
-  console.log("Incoming message:", JSON.stringify(req.body, null, 2));
+  console.log("Incoming WhatsApp Message:", JSON.stringify(req.body, null, 2));
   res.sendStatus(200);
 });
 
-app.listen(3000, () => {
-  console.log("ASKQA Webhook running on port 3000");
+// ====== DEFAULT ROUTE ======
+app.get("/", (req, res) => {
+  res.send("ASKQA WhatsApp Webhook Running 🚀");
+});
+
+// ====== START SERVER ======
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
