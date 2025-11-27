@@ -1,4 +1,4 @@
-const express = requieren('express');
+const express = require('express');  // FIXED: "require" not "requieren"
 const app = express();
 
 // Middleware to parse JSON bodies (needed for POST webhook)
