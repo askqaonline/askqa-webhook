@@ -1,66 +1,100 @@
-const express = require('express');  // FIXED: "require" not "requieren"
+import express from "express";
+import bodyParser from "body-parser";
+import axios from "axios";
+import dotenv from "dotenv";
+
+dotenv.config();
+console.log("VERIFY TOKEN LOADED:", process.env.VERIFY_TOKEN);
+
 const app = express();
+app.use(bodyParser.json());
 
-// Middleware to parse JSON bodies (needed for POST webhook)
-app.use(express.json({ verify: (req, res, buf) => { req.rawBody = buf; } }));
+// =========================
+// CONFIGURATION
+// =========================
+const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
+const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
+const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
 
-// Your exact verify token from the Meta dashboard
-const VERIFY_TOKEN = 'askqa313';
+// =========================
+// WEBHOOK VERIFY (GET)
+// =========================
+app.get("/webhook", (req, res) => {
+  const mode = req.query["hub.mode"];
+  const token = req.query["hub.verify_token"];
+  const challenge = req.query["hub.challenge"];
 
-// ============================
-// WEBHOOK VERIFICATION (GET)
-// ============================
-app.get('/webhook', (req, res) => {
-  console.log('WEBHOOK VERIFY REQUEST:', req.query);
+  console.log("WEBHOOK VERIFY REQUEST:", { mode, token, challenge });
 
-  const mode = req.query['hub.mode'];
-  const token = req.query['hub.verify_token'];
-  const challenge = req.query['hub.challenge'];
-
-  if (mode === 'subscribe' && token === VERIFY_TOKEN) {
-    console.log('WEBHOOK VERIFIED SUCCESSFULLY!');
-    return res.status(200).type('text/plain').send(challenge);
+  if (mode === "subscribe" && token === VERIFY_TOKEN) {
+    console.log("WEBHOOK VERIFIED SUCCESSFULLY!");
+    return res.status(200).send(challenge);
   }
-
-  console.log('VERIFICATION FAILED - Wrong token');
-  res.sendStatus(403);
+  return res.sendStatus(403);
 });
 
-// ============================
-// RECEIVE MESSAGES (POST)
-// ============================
-app.post('/webhook', (req, res) => {
-  const body = req.body;
+// =========================
+// RECEIVE WHATSAPP MESSAGES (POST)
+// =========================
+app.post("/webhook", async (req, res) => {
+  try {
+    console.log("RECEIVED WEBHOOK:", JSON.stringify(req.body, null, 2));
 
-  console.log('RECEIVED WEBHOOK:', JSON.stringify(body, null, 2));
+    const data = req.body;
 
-  // Check the payload is from Page/Instagram
-  if (body.object) {
-    // Acknowledge receipt immediately
-    res.sendStatus(200);
+    // Check if incoming message exists
+    if (
+      data.object === "whatsapp_business_account" &&
+      data.entry &&
+      data.entry[0].changes &&
+      data.entry[0].changes[0].value.messages
+    ) {
+      const message = data.entry[0].changes[0].value.messages[0];
+      const from = message.from;
+      const text = message.text?.body || "";
 
-    // Process each entry (messages, status updates, etc.)
-    body.entry?.forEach(entry => {
-      entry.messaging?.forEach(event => {
-        if (event.message) {
-          console.log('New message:', event.message.text);
-          // Here you will later reply or forward the message
+      console.log("Received Message:", text);
+
+      // =========================
+      // AUTO-REPLY LOGIC
+      // =========================
+
+      let reply = "Hello 👋 This is ASKQA Auto-Reply.\nHow can I help you today?";
+
+      if (text.toLowerCase().includes("hi")) reply = "Hi MMA 👋! How can I support you?";
+      if (text.toLowerCase().includes("help")) reply = "Tell me your question. I am here.";
+      if (text.toLowerCase().includes("askqa")) reply = "ASKQA is online! 🔥 Ask me anything.";
+
+      // =========================
+      // SEND MESSAGE TO WHATSAPP
+      // =========================
+      await axios.post(
+        `https://graph.facebook.com/v19.0/${PHONE_NUMBER_ID}/messages`,
+        {
+          messaging_product: "whatsapp",
+          to: from,
+          text: { body: reply }
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${WHATSAPP_TOKEN}`,
+            "Content-Type": "application/json",
+          },
         }
-      });
-    });
-  } else {
-    res.sendStatus(404);
+      );
+
+      console.log("Reply Sent:", reply);
+    }
+
+    res.sendStatus(200);
+  } catch (err) {
+    console.error("ERROR:", err);
+    res.sendStatus(500);
   }
 });
 
-// Root route (optional – just so the URL doesn't 404)
-app.get('/', (req, res) => {
-  res.send('Webhook is live 🚀');
-});
-
-// Start server
-const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => {
-  console.log(`VERIFY TOKEN LOADED: ${VERIFY_TOKEN}`);
-  console.log(`Server running on port ${PORT}`);
-});
+// =========================
+// SERVER START
+// =========================
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
