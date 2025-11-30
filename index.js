@@ -19,20 +19,35 @@ const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 // Simple in-memory dedupe
 const seenMessageIds = new Set();
 
-// ---------------------------
-// OpenAI Reply Function
-// ---------------------------
+// 🔥 REAL INDIA DATE + TIME
+function getCurrentDateTime() {
+  return new Date().toLocaleString("en-IN", {
+    timeZone: "Asia/Kolkata",
+    dateStyle: "long",
+    timeStyle: "medium"
+  });
+}
+
+// -----------------------------------------
+// ASK OPENAI (ASKQA BRAIN)
+// -----------------------------------------
 async function askOpenAI(userText, meta = {}) {
+
+  const today = getCurrentDateTime();
+
   const systemPrompt = `
+TODAY'S REAL DATE-TIME (IST): ${today}
+
 You are ASKQA — the official answering brain for "AskQA".
 
-Rules:
-1) Detect language automatically; reply in the same language (Tamil if input is Tamil).
-2) Detect user's tone and respond with matching empathy.
-3) Give short, clear, practical answers first; then offer deeper explanation.
-4) End with a small actionable step.
-5) Persona: friendly, direct, helpful, MMA style.
-6) If user asks anything harmful/illegal, refuse safely and suggest alternatives.
+RULES:
+1) Always use the REAL date/time shown above for any date-related answers.
+2) Detect input language automatically and reply in the SAME language (Tamil if Tamil).
+3) If user asks a question you are unsure about, ASK for clarification instead of guessing.
+4) Provide short, clear, practical answers first; then give optional deeper explanation.
+5) Always end with a small helpful step ("Let me know if you want...").
+6) Use friendly MMA-style tone when appropriate.
+7) If user asks for harmful/illegal instructions, refuse politely.
 `;
 
   try {
@@ -57,16 +72,16 @@ Rules:
 
     return (
       resp.data.choices?.[0]?.message?.content ||
-      "Sorry, ASKQA couldn't think right now."
+      "Sorry MMA, I couldn't think clearly. Try again!"
     );
   } catch (err) {
     console.error("OpenAI error:", err?.response?.data || err.message);
-    return "Sorry — ASKQA is facing an issue. Try again.";
+    return "AskQA brain is facing an issue — try again in a few seconds, MMA.";
   }
 }
 
 // -----------------------------------------
-// SEND WHATSAPP MESSAGE - FIXED (v20.0)
+// SEND WHATSAPP MESSAGE (v20.0)
 // -----------------------------------------
 async function sendWhatsApp(to, text) {
   try {
@@ -112,7 +127,7 @@ app.get("/webhook", (req, res) => {
 });
 
 // -----------------------------------------
-// RECEIVE WEBHOOK (POST)
+// RECEIVE INCOMING WHATSAPP MESSAGES (POST)
 // -----------------------------------------
 app.post("/webhook", async (req, res) => {
   try {
@@ -132,7 +147,7 @@ app.post("/webhook", async (req, res) => {
       const msgId = msgObj.id;
       const text = msgObj.text?.body || "";
 
-      // Dedupe: prevent double replies
+      // Prevent duplicate replies
       if (seenMessageIds.has(msgId)) {
         console.log("Duplicate message ignored:", msgId);
         return res.sendStatus(200);
@@ -141,20 +156,20 @@ app.post("/webhook", async (req, res) => {
 
       console.log("Received Message FROM:", from, "| TEXT:", text);
 
-      // QUICK KEYWORD HANDLER
+      // Quick hello handler
       const lower = text.toLowerCase();
       if (["hi", "hello", "ping"].includes(lower)) {
         await sendWhatsApp(
           from,
-          "Hi MMA 👋! I am ASKQA. Send your question — Tamil or English!"
+          "Hi MMA 👋! I am ASKQA. Send me any question — Tamil or English!"
         );
         return res.sendStatus(200);
       }
 
-      // ASK OPENAI
+      // Ask ASKQA brain
       const answer = await askOpenAI(text);
 
-      // Ensure <= WhatsApp limit; split if needed
+      // WhatsApp max length protection
       const maxLen = 2000;
       if (answer.length <= maxLen) {
         await sendWhatsApp(from, answer);
@@ -173,7 +188,7 @@ app.post("/webhook", async (req, res) => {
 });
 
 // -----------------------------------------
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
 app.listen(PORT, () =>
   console.log(`Server running on port ${PORT}`)
 );
